@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+venv/
+
+# Models Matrix-3D (téléchargés à l'exécution, pas suivis par git)
+models/
+checkpoints/
+weights/
+
+# Données / sorties lourdes
+outputs/
+runs/
+logs/
+*.mp4
+*.ply
+*.npz
+
+# Docker
+*.log
