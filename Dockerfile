@@ -1,24 +1,19 @@
 # syntax=docker/dockerfile:1.6
-FROM nvidia/cuda:12.1.0-runtime-ubuntu22.04
+# Image RunPod avec agent + Jupyter (PyTorch 2.8.0, CUDA 12.x, Ubuntu 24.04)
+FROM runpod/pytorch:1.0.2-cu1281-torch280-ubuntu2404
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV PATH="/usr/local/cuda/bin:${PATH}"
-ENV PIP_NO_CACHE_DIR=1
 
-# 1. Linux + Python + utils (avec cache apt pour limiter les re-téléchargements)
+# 1. Linux + utils (avec cache apt pour limiter les re-téléchargements)
 RUN --mount=type=cache,target=/var/cache/apt \
     --mount=type=cache,target=/var/lib/apt/lists \
     apt-get update && apt-get install -y \
     git \
-    python3 \
-    python3-pip \
     ffmpeg \
     wget \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
-
-# Alias python -> python3 (certains runners n'ont que python3 en binaire)
-RUN update-alternatives --install /usr/bin/python python /usr/bin/python3 1
 
 WORKDIR /workspace
 
@@ -27,21 +22,10 @@ RUN git clone --recursive https://github.com/SkyworkAI/Matrix-3D.git matrix3d
 
 WORKDIR /workspace/matrix3d
 
-# 3. Installer torch + torchvision (versions conseillées) en limitant l'écriture disque
-#    grâce à des tmpfs pour les téléchargements temporaires.
-RUN --mount=type=tmpfs,target=/root/.cache/pip \
-    --mount=type=tmpfs,target=/tmp \
-    pip install --upgrade pip && \
-    pip install --no-cache-dir --default-timeout=300 --retries 10 --progress-bar off \
-      torch==2.7.0 torchvision==0.22.0
-
-# 4. Lancer le script d'installation Matrix-3D
+# 3. Installer les dépendances Python de Matrix-3D
 RUN chmod +x install.sh && ./install.sh
 
-# Nettoyage des caches pip éventuels
-RUN rm -rf /root/.cache
-
-# 5. Revenir dans /workspace et ajouter nos scripts
+# 4. Revenir dans /workspace et ajouter nos scripts
 WORKDIR /workspace
 RUN mkdir -p /workspace/scripts
 
@@ -51,8 +35,7 @@ COPY scripts/run_throne_scene.sh /workspace/scripts/run_throne_scene.sh
 RUN chmod +x /workspace/scripts/download_models.sh \
              /workspace/scripts/run_throne_scene.sh
 
-# 6. Dossiers pour modèles et sorties
+# 5. Dossiers pour modèles et sorties
 RUN mkdir -p /workspace/models /workspace/outputs
 
-# 7. Commande par défaut : télécharger les modèles puis générer la scène "throne"
-CMD ["/bin/bash", "/workspace/scripts/run_throne_scene.sh"]
+# IMPORTANT : ne pas définir de CMD/ENTRYPOINT pour laisser l'agent RunPod (Jupyter/SSH) fonctionner.
