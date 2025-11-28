@@ -1,8 +1,9 @@
 # syntax=docker/dockerfile:1.6
-FROM nvidia/cuda:12.1.0-devel-ubuntu22.04
+FROM nvidia/cuda:12.1.0-runtime-ubuntu22.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV PATH="/usr/local/cuda/bin:${PATH}"
+ENV PIP_NO_CACHE_DIR=1
 
 # 1. Linux + Python + utils (avec cache apt pour limiter les re-téléchargements)
 RUN --mount=type=cache,target=/var/cache/apt \
@@ -36,6 +37,9 @@ RUN --mount=type=tmpfs,target=/root/.cache/pip \
 
 # 4. Lancer le script d'installation Matrix-3D
 RUN chmod +x install.sh && ./install.sh
+
+# Nettoyage des caches pip éventuels
+RUN rm -rf /root/.cache
 
 # 5. Revenir dans /workspace et ajouter nos scripts
 WORKDIR /workspace
