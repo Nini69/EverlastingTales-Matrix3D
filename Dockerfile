@@ -24,8 +24,9 @@ WORKDIR /workspace/matrix3d
 RUN find . -maxdepth 2 -name 'requirements*.txt' -exec sed -i '/^torch==/d;/^torchvision==/d;/^torchaudio==/d' {} + && \
     sed -i '/pip install .*torch/Id' install.sh || true
 
-# Installer les dépendances Matrix-3D
-RUN pip install --no-cache-dir -r requirements.txt && \
+# Installer les dépendances Matrix-3D (on ajoute explicitement huggingface_hub manquant)
+RUN pip install --no-cache-dir huggingface_hub==0.25.2 && \
+    pip install --no-cache-dir -r requirements.txt && \
     chmod +x install.sh && ./install.sh && \
     pip cache purge || true
 
