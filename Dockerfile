@@ -1,6 +1,5 @@
 # syntax=docker/dockerfile:1.6
-# Image PyTorch déjà packagée avec torch/torchvision 2.7.0 / CUDA 12.1 pour éviter de re-télécharger les gros wheels
-FROM pytorch/pytorch:2.7.0-cuda12.1-cudnn9-runtime
+FROM nvidia/cuda:12.1.0-devel-ubuntu22.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV PATH="/usr/local/cuda/bin:${PATH}"
@@ -27,8 +26,13 @@ RUN git clone --recursive https://github.com/SkyworkAI/Matrix-3D.git matrix3d
 
 WORKDIR /workspace/matrix3d
 
-# 3. Torch/torchvision déjà présents dans l'image de base (2.7.0 / 0.22.0).
-# On laisse pip gérer uniquement les dépendances de Matrix-3D via install.sh.
+# 3. Installer torch + torchvision (versions conseillées) en limitant l'écriture disque
+#    grâce à des tmpfs pour les téléchargements temporaires.
+RUN --mount=type=tmpfs,target=/root/.cache/pip \
+    --mount=type=tmpfs,target=/tmp \
+    pip install --upgrade pip && \
+    pip install --no-cache-dir --default-timeout=300 --retries 10 --progress-bar off \
+      torch==2.7.0 torchvision==0.22.0
 
 # 4. Lancer le script d'installation Matrix-3D
 RUN chmod +x install.sh && ./install.sh
