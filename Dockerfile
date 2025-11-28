@@ -21,15 +21,24 @@ RUN git clone --recursive https://github.com/SkyworkAI/Matrix-3D.git matrix3d
 
 WORKDIR /workspace/matrix3d
 
-# 3. Installer huggingface_hub explicitement avant les autres dépendances
-RUN pip install --no-cache-dir huggingface_hub==0.25.2
+# 3. Nettoyer les contraintes torch/vision/numpy pour imposer nos versions CUDA 12.1
+RUN find . -maxdepth 2 -name 'requirements*.txt' -exec sed -i '/^torch==/d;/^torchvision==/d;/^torchaudio==/d;/^numpy[><=]/d' {} + && \
+    sed -i '/pip install .*torch/Id' install.sh || true
 
-# 4. Installer les dépendances Python de Matrix-3D via install.sh
-RUN chmod +x install.sh && ./install.sh
+# 4. Forcer numpy<2 et torch/torchvision cu121 + dépendances Matrix-3D
+RUN pip install --no-cache-dir "numpy<2" && \
+    pip install --no-cache-dir torch==2.7.0 torchvision==0.22.0 --extra-index-url https://download.pytorch.org/whl/cu121 && \
+    pip install --no-cache-dir huggingface_hub==0.25.2 && \
+    pip install --no-cache-dir -r requirements.txt && \
+    chmod +x install.sh && ./install.sh || true
+
+# 4bis. xformers peut être incompatible : on le désactive pour éviter les crashs
+RUN pip uninstall -y xformers || true && pip cache purge || true
+ENV XFORMERS_DISABLE_FLASH_ATTN=1
 
 # 5. Revenir dans /workspace et ajouter nos scripts
 WORKDIR /workspace
-RUN mkdir -p /workspace/scripts
+RUN mkdir -p /workspace/scripts /workspace/models /workspace/outputs
 
 COPY scripts/download_models.sh /workspace/scripts/download_models.sh
 COPY scripts/run_throne_scene.sh /workspace/scripts/run_throne_scene.sh
