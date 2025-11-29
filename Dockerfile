@@ -1,39 +1,58 @@
 # syntax=docker/dockerfile:1.6
-# Image RunPod avec agent + Jupyter (PyTorch 2.8.0, CUDA 12.1, Ubuntu 22.04)
-FROM runpod/pytorch:2.2.0-py3.10-cuda12.1.1-devel-ubuntu22.04
+# Image optimisée pour RunPod (Runtime CUDA 12.1 + Python 3.10 + Deps baked-in)
+# Plus léger que runpod/pytorch-devel et évite de réinstaller CUDA via apt.
+FROM nvidia/cuda:12.1.1-cudnn8-runtime-ubuntu22.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV PIP_NO_CACHE_DIR=1
 ENV PATH="/usr/local/cuda/bin:${PATH}"
+# Rediriger le cache HF vers le volume RunPod (sera monté au runtime)
+ENV HF_HOME="/workspace/data/hf-cache"
+ENV TRANSFORMERS_CACHE="/workspace/data/hf-cache"
 
-# 1. Linux + utils
+# 1. Installer Python 3.10 et outils système essentiels
+# On n'installe PAS cuda-toolkit via apt (déjà dans l'image ou inutile pour le runtime)
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3.10 \
+    python3.10-dev \
+    python3-pip \
     git \
     ffmpeg \
     wget \
     ca-certificates \
-    && rm -rf /var/lib/apt/lists/*
+    libgl1 \
+    libglib2.0-0 \
+    && rm -rf /var/lib/apt/lists/* && \
+    ln -s /usr/bin/python3.10 /usr/bin/python
 
 WORKDIR /workspace
 
-# 2. Cloner Matrix-3D (avec sous-modules)
+# 2. Copier et installer les dépendances Python (Baked-in !)
+COPY requirements-matrix3d.txt /tmp/requirements-matrix3d.txt
+RUN pip install --upgrade pip && \
+    pip install --no-cache-dir -r /tmp/requirements-matrix3d.txt && \
+    rm -rf /root/.cache/pip
+
+# 3. Cloner Matrix-3D
 RUN git clone --recursive https://github.com/SkyworkAI/Matrix-3D.git matrix3d
 
 WORKDIR /workspace/matrix3d
 
-# 3. Nettoyer les contraintes torch/vision/numpy pour imposer nos versions CUDA 12.1
+# 4. Nettoyage des requirements du repo pour éviter les conflits
+# On a déjà installé ce qu'il faut, on empêche le script d'install de tout casser
 RUN find . -maxdepth 2 -name 'requirements*.txt' -exec sed -i '/^torch==/d;/^torchvision==/d;/^torchaudio==/d;/^numpy[><=]/d' {} + && \
-    sed -i '/pip install .*torch/Id' install.sh || true
-
-# 4. Stack Python alignée pour diffusers/transformers + vision 3D
-RUN pip install --no-cache-dir "numpy<2" && \
-    pip install --no-cache-dir torch==2.7.0 torchvision==0.22.0 --extra-index-url https://download.pytorch.org/whl/cu121 && \
-    pip install --no-cache-dir huggingface_hub==0.34.0 transformers==4.38.2 "accelerate>=0.25" einops opencv-python open3d plotly dash py360convert scikit-image && \
-    pip install --no-cache-dir diffusers==0.27.2 && \
-    pip install --no-cache-dir -r requirements.txt && \
+    sed -i '/pip install .*torch/Id' install.sh || true && \
     chmod +x install.sh && ./install.sh || true
 
-# 4bis. Stub torch.xpu pour éviter les erreurs diffusers
+# 4bis. Patch des scripts pour forcer float16 et optimiser VRAM
+# - panoramic_image_generation.py : bfloat16 -> float16, retirer .to(device) car enable_model_cpu_offload gère le placement
+# - panoramic_image_to_video.py : bfloat16/float32 -> float16
+RUN sed -i 's/torch.bfloat16/torch.float16/g' code/panoramic_image_generation.py && \
+    sed -i 's/).to(device)/)/' code/panoramic_image_generation.py && \
+    sed -i 's/torch.bfloat16/torch.float16/g' code/panoramic_image_to_video.py && \
+    sed -i 's/torch.float32/torch.float16/g' code/panoramic_image_to_video.py
+
+# 5. Stub torch.xpu pour compatibilité diffusers récents
 RUN python - <<'PY'
 import pathlib, textwrap
 sitecustomize = pathlib.Path('/usr/local/lib/python3.10/dist-packages/sitecustomize.py')
@@ -50,17 +69,16 @@ if not hasattr(torch, "xpu"):
 sitecustomize.write_text(stub)
 PY
 
-# 5. Revenir dans /workspace et ajouter nos scripts
+# 6. Setup scripts et dossiers
 WORKDIR /workspace
-RUN mkdir -p /workspace/scripts /workspace/models /workspace/outputs
+RUN mkdir -p /workspace/scripts /workspace/models /workspace/outputs /workspace/data
 
 COPY scripts/download_models.sh /workspace/scripts/download_models.sh
 COPY scripts/run_throne_scene.sh /workspace/scripts/run_throne_scene.sh
 
 RUN chmod +x /workspace/scripts/download_models.sh \
-             /workspace/scripts/run_throne_scene.sh
+    /workspace/scripts/run_throne_scene.sh
 
-# 6. Dossiers pour modèles et sorties
-RUN mkdir -p /workspace/models /workspace/outputs
-
-# IMPORTANT : ne pas définir de CMD/ENTRYPOINT pour laisser l'agent RunPod (Jupyter/SSH) fonctionner.
+# Pas de CMD spécifique, on laisse RunPod lancer son agent ou un sleep infinie si besoin
+# (Note: l'image nvidia n'a pas l'agent RunPod pré-installé, mais RunPod l'injecte souvent.
+# Si besoin d'accès SSH/Jupyter natif, il faudra peut-être installer openssh-server/jupyterlab)

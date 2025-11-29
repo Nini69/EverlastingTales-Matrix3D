@@ -1,0 +1,26 @@
+# Core PyTorch stack (pinned for compatibility)
+# Using torch 2.2.0 + cu121 as recommended for Matrix-3D / Pytorch3D compatibility
+torch==2.2.0
+torchvision==0.17.0
+torchaudio==2.2.0
+--extra-index-url https://download.pytorch.org/whl/cu121
+
+# Hugging Face stack
+huggingface_hub==0.25.2
+transformers==4.38.2
+diffusers==0.27.2
+accelerate>=0.25
+safetensors
+
+# Matrix-3D specific
+einops
+opencv-python
+open3d
+plotly
+dash
+py360convert
+scikit-image
+sentencepiece
+protobuf
+plyfile
+numpy<2
