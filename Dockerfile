@@ -34,7 +34,21 @@ RUN pip install --no-cache-dir "numpy<2" && \
     chmod +x install.sh && ./install.sh || true
 
 # 4bis. Stub torch.xpu pour diffusers main (évite AttributeError)
-RUN python - <<'PY'\nimport pathlib, textwrap\nsitecustomize = pathlib.Path('/usr/local/lib/python3.10/dist-packages/sitecustomize.py')\nstub = textwrap.dedent('''\nimport torch, types\nif not hasattr(torch, \"xpu\"):\n    torch.xpu = types.SimpleNamespace(\n        empty_cache=lambda: None,\n        is_available=lambda: False,\n        device_count=lambda: 0,\n        manual_seed=lambda *args, **kwargs: None,\n    )\n''')\nsitecustomize.write_text(stub)\nPY
+RUN python - <<'PY'
+import pathlib, textwrap
+sitecustomize = pathlib.Path('/usr/local/lib/python3.10/dist-packages/sitecustomize.py')
+stub = textwrap.dedent('''
+import torch, types
+if not hasattr(torch, "xpu"):
+    torch.xpu = types.SimpleNamespace(
+        empty_cache=lambda: None,
+        is_available=lambda: False,
+        device_count=lambda: 0,
+        manual_seed=lambda *args, **kwargs: None,
+    )
+''')
+sitecustomize.write_text(stub)
+PY
 
 # 5. Revenir dans /workspace et ajouter nos scripts
 WORKDIR /workspace
