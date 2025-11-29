@@ -29,11 +29,11 @@ RUN find . -maxdepth 2 -name 'requirements*.txt' -exec sed -i '/^torch==/d;/^tor
 RUN pip install --no-cache-dir "numpy<2" && \
     pip install --no-cache-dir torch==2.7.0 torchvision==0.22.0 --extra-index-url https://download.pytorch.org/whl/cu121 && \
     pip install --no-cache-dir huggingface_hub==0.34.0 transformers==4.38.2 "accelerate>=0.25" einops opencv-python open3d plotly dash py360convert scikit-image && \
-    pip install --no-cache-dir --no-deps git+https://github.com/huggingface/diffusers.git@main && \
+    pip install --no-cache-dir diffusers==0.27.2 && \
     pip install --no-cache-dir -r requirements.txt && \
     chmod +x install.sh && ./install.sh || true
 
-# 4bis. Stub torch.xpu pour diffusers main (évite AttributeError)
+# 4bis. Stub torch.xpu pour éviter les erreurs diffusers
 RUN python - <<'PY'
 import pathlib, textwrap
 sitecustomize = pathlib.Path('/usr/local/lib/python3.10/dist-packages/sitecustomize.py')
