@@ -29,6 +29,7 @@ RUN find . -maxdepth 2 -name 'requirements*.txt' -exec sed -i '/^torch==/d;/^tor
 RUN pip install --no-cache-dir "numpy<2" && \
     pip install --no-cache-dir torch==2.7.0 torchvision==0.22.0 --extra-index-url https://download.pytorch.org/whl/cu121 && \
     pip install --no-cache-dir huggingface_hub==0.25.2 && \
+    pip install --no-cache-dir \"transformers>=4.37,<4.39\" && \
     pip install --no-cache-dir -r requirements.txt && \
     chmod +x install.sh && ./install.sh || true
 
