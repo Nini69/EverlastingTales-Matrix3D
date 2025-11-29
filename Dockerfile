@@ -25,11 +25,11 @@ WORKDIR /workspace/matrix3d
 RUN find . -maxdepth 2 -name 'requirements*.txt' -exec sed -i '/^torch==/d;/^torchvision==/d;/^torchaudio==/d;/^numpy[><=]/d' {} + && \
     sed -i '/pip install .*torch/Id' install.sh || true
 
-# 4. Forcer numpy<2 et torch/torchvision cu121 + dépendances Matrix-3D
+# 4. Forcer numpy<2, torch/torchvision cu121 et dépendances Matrix-3D (HF + diffusers + vision 3D)
 RUN pip install --no-cache-dir "numpy<2" && \
     pip install --no-cache-dir torch==2.7.0 torchvision==0.22.0 --extra-index-url https://download.pytorch.org/whl/cu121 && \
-    pip install --no-cache-dir huggingface_hub==0.25.2 && \
-    pip install --no-cache-dir \"transformers>=4.37,<4.39\" && \
+    pip install --no-cache-dir huggingface_hub==0.34.0 transformers==4.38.2 "accelerate>=0.25" einops opencv-python open3d plotly dash && \
+    pip install --no-cache-dir --no-deps git+https://github.com/huggingface/diffusers.git@main && \
     pip install --no-cache-dir -r requirements.txt && \
     chmod +x install.sh && ./install.sh || true
 
