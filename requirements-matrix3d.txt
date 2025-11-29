@@ -24,3 +24,9 @@ sentencepiece
 protobuf
 plyfile
 numpy<2
+
+# Jupyter / Interactive
+jupyterlab==4.1.0
+ipykernel==6.29.0
+ipywidgets==8.1.1
+notebook==6.5.5

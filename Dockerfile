@@ -82,3 +82,9 @@ RUN chmod +x /workspace/scripts/download_models.sh \
 # Pas de CMD spécifique, on laisse RunPod lancer son agent ou un sleep infinie si besoin
 # (Note: l'image nvidia n'a pas l'agent RunPod pré-installé, mais RunPod l'injecte souvent.
 # Si besoin d'accès SSH/Jupyter natif, il faudra peut-être installer openssh-server/jupyterlab)
+
+# 7. Configuration pour RunPod (Jupyter)
+# On expose le port 8888 et on lance JupyterLab par défaut
+EXPOSE 8888
+ENV JUPYTER_ALLOW_INSECURE_WRITES=true
+CMD ["jupyter", "lab", "--ip=0.0.0.0", "--port=8888", "--no-browser", "--allow-root", "--NotebookApp.token=''", "--NotebookApp.password=''"]
