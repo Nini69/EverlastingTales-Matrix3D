@@ -65,6 +65,29 @@ if not hasattr(torch, "xpu"):
         device_count=lambda: 0,
         manual_seed=lambda *args, **kwargs: None,
     )
+
+# Stub for pytorch3d.transforms.matrix_to_quaternion if pytorch3d is missing
+try:
+    import pytorch3d.transforms
+except ImportError:
+    # Create a dummy pytorch3d module if it doesn't exist
+    import sys
+    if 'pytorch3d' not in sys.modules:
+        pytorch3d = types.ModuleType('pytorch3d')
+        sys.modules['pytorch3d'] = pytorch3d
+        pytorch3d.transforms = types.ModuleType('pytorch3d.transforms')
+    
+    # Define the stub function
+    def matrix_to_quaternion(matrix):
+        # Returns a dummy quaternion [1, 0, 0, 0] for any input
+        # Input shape expected: (..., 3, 3)
+        # Output shape: (..., 4)
+        if isinstance(matrix, torch.Tensor):
+            batch_dims = matrix.shape[:-2]
+            return torch.tensor([1.0, 0.0, 0.0, 0.0], device=matrix.device, dtype=matrix.dtype).expand(*batch_dims, 4)
+        return None
+
+    pytorch3d.transforms.matrix_to_quaternion = matrix_to_quaternion
 ''')
 sitecustomize.write_text(stub)
 PY
